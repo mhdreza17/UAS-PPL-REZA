@@ -1,0 +1,135 @@
+name: DamnCRUD Selenium Tests - Parallel CI/CD
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    # -------------------------------------------------------
+    # Service: MySQL database untuk aplikasi DamnCRUD
+    # -------------------------------------------------------
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: damncrud
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    steps:
+
+      # Step 1: Ambil source code repository
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      # Step 2: Setup PHP untuk menjalankan aplikasi DamnCRUD
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.1'
+          extensions: mysqli, pdo_mysql
+
+      # Step 3: Setup Python untuk menjalankan pytest + selenium
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # Step 4: Install semua dependensi Python
+      - name: Install Python Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # Step 5: Setup Chrome browser (untuk Selenium)
+      - name: Setup Chrome
+        uses: browser-actions/setup-chrome@latest
+        with:
+          chrome-version: stable
+
+      # Step 6: Setup ChromeDriver yang sesuai dengan Chrome
+      - name: Setup ChromeDriver
+        uses: nanasess/setup-chromedriver@v2
+
+      # Step 7: Tunggu MySQL benar-benar siap
+      - name: Wait for MySQL
+        run: |
+          echo "Menunggu MySQL siap..."
+          for i in $(seq 1 30); do
+            if mysqladmin ping -h "127.0.0.1" -P 3306 -u root -proot --silent; then
+              echo "MySQL sudah siap!"
+              break
+            fi
+            echo "Percobaan $i — MySQL belum siap, tunggu 2 detik..."
+            sleep 2
+          done
+
+      # Step 8: Import database damncrud.sql ke MySQL
+      - name: Import Database
+        run: |
+          mysql -h 127.0.0.1 -P 3306 -u root -proot damncrud < damncrud.sql
+          echo "Database berhasil diimport!"
+
+      # Step 9: Update konfigurasi koneksi database di functions.php
+      # (ubah dari localhost ke 127.0.0.1 dan set password root)
+      - name: Update Database Config
+        run: |
+          sed -i "s/\$DATABASE_HOST = 'localhost'/\$DATABASE_HOST = '127.0.0.1'/" functions.php
+          sed -i "s/\$DATABASE_PASS = ''/\$DATABASE_PASS = 'root'/" functions.php
+          echo "Konfigurasi database diperbarui!"
+
+      # Step 10: Jalankan PHP built-in server sebagai web server AUT
+      - name: Start PHP Web Server
+        run: |
+          php -S 0.0.0.0:8080 &
+          sleep 3
+          echo "PHP server berjalan di port 8080"
+        env:
+          CI: true
+
+      # Step 11: Verifikasi web server & database bisa diakses
+      - name: Verify Server is Running
+        run: |
+          echo "Mengecek akses ke login.php..."
+          curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/login.php
+          echo ""
+          echo "Server check selesai!"
+
+      # Step 12: Jalankan semua 8 test case secara PARALEL
+      # -n auto  → pytest-xdist otomatis deteksi jumlah CPU dan bagi worker
+      # --html   → generate HTML report
+      # --tb=short → tampilkan traceback ringkas saat test gagal
+      - name: Run Parallel Selenium Tests
+        run: |
+          python -m pytest test_damncrud_parallel.py \
+            -n auto \
+            -v \
+            --tb=short \
+            --html=test-report.html \
+            --self-contained-html
+        env:
+          BASE_URL: http://localhost:8080
+          CI: true
+          GITHUB_ACTIONS: true
+
+      # Step 13: Upload HTML test report sebagai artifact
+      # (bisa didownload dari tab Actions di GitHub)
+      - name: Upload Test Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: selenium-test-report
+          path: test-report.html
+          retention-days: 30
