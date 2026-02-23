@@ -118,7 +118,8 @@ jobs:
             -v \
             --tb=short \
             --html=test-report.html \
-            --self-contained-html
+            --self-contained-html \
+            --import-mode=importlib
         env:
           BASE_URL: http://localhost:8080
           CI: true
