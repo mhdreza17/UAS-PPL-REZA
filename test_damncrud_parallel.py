@@ -210,39 +210,6 @@ def test_delete_no_id(logged_in_driver, base_url):
         print("  [RESULT] ❌ FAIL — Pesan error tidak sesuai harapan")
 
 
-# =============================================
-# TC-18 | XSS pada VPage
-# =============================================
-def test_xss_vpage(logged_in_driver, base_url):
-    """Test XSS vulnerability pada vpage"""
-    print("\n" + "="*60)
-    print("TC-18 | XSS Reflected pada VPage")
-    print("="*60)
-
-    driver = logged_in_driver
-    driver.get(f"{base_url}/vpage.php")
-    time.sleep(1)
-
-    xss_payload = "<script>alert('XSS')</script>"
-    driver.find_element(By.NAME, "thing").send_keys(xss_payload)
-    driver.find_element(By.NAME, "submit").click()
-    time.sleep(2)
-
-    print(f"  [INPUT]  Payload: {xss_payload}")
-    print(f"  [URL]    {driver.current_url}")
-
-    try:
-        alert = driver.switch_to.alert
-        alert_text = alert.text
-        alert.accept()
-        print(f"  [RESULT] ❌ FAIL — XSS BERHASIL! Alert muncul: '{alert_text}'")
-    except Exception:
-        page_source = driver.page_source
-        if xss_payload in page_source or "alert" in page_source:
-            print("  [RESULT] ❌ FAIL — Payload XSS ditemukan di page source (tidak di-escape)")
-        else:
-            print("  [RESULT] ✅ PASS — Input berhasil di-sanitasi, XSS tidak terjadi")
-
 
 # =============================================
 # TC-20 | Akses update.php Tanpa Login

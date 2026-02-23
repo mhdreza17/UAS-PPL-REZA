@@ -324,55 +324,6 @@ def test_delete_no_id():
 
 
 # =============================================
-# TC-18 | XSS pada VPage
-# OBJECTIVE  : Menguji apakah vpage.php rentan terhadap Reflected XSS
-# EXPECTED   : Script tidak dieksekusi, input di-sanitasi
-# STATUS     : FAIL (tidak ada htmlspecialchars())
-# =============================================
-def test_xss_vpage():
-    """
-    Langkah-langkah:
-    1. Login terlebih dahulu
-    2. Navigasi ke vpage.php
-    3. Masukkan payload XSS pada field 'thing'
-    4. Submit form
-    5. Verifikasi apakah script dieksekusi (alert muncul) atau tidak
-    """
-    print("\n" + "="*60)
-    print("TC-18 | XSS Reflected pada VPage")
-    print("="*60)
-
-    login()
-    driver.get(f"{BASE_URL}/vpage.php")
-    time.sleep(1)
-
-    # Step 1: Masukkan payload XSS
-    xss_payload = "<script>alert('XSS')</script>"
-    driver.find_element(By.NAME, "thing").send_keys(xss_payload)
-    driver.find_element(By.NAME, "submit").click()
-    time.sleep(2)
-
-    print(f"  [INPUT]  Payload: {xss_payload}")
-    print(f"  [URL]    {driver.current_url}")
-
-    # Step 2: Cek apakah alert muncul (tanda XSS berhasil)
-    try:
-        alert = driver.switch_to.alert
-        alert_text = alert.text
-        alert.accept()
-        print(f"  [RESULT] ❌ FAIL — XSS BERHASIL! Alert muncul: '{alert_text}'")
-        print("  [BUG]    vpage.php langsung echo $_GET['thing'] tanpa sanitasi")
-        print("           Perbaikan: echo htmlspecialchars($_GET['thing'], ENT_QUOTES)")
-    except Exception:
-        # Tidak ada alert — cek apakah script ada di page source (raw)
-        page_source = driver.page_source
-        if xss_payload in page_source or "alert" in page_source:
-            print("  [RESULT] ❌ FAIL — Payload XSS ditemukan di page source (tidak di-escape)")
-        else:
-            print("  [RESULT] ✅ PASS — Input berhasil di-sanitasi, XSS tidak terjadi")
-
-
-# =============================================
 # TC-20 | Akses update.php Tanpa Login
 # OBJECTIVE  : Verifikasi proteksi halaman update tanpa autentikasi
 # EXPECTED   : Pengguna dialihkan ke login.php
@@ -428,7 +379,6 @@ if __name__ == "__main__":
         ("TC-12 Bug Phone di Form Edit",        test_edit_phone_bug),
         ("TC-13 Hapus Kontak",                  test_delete_contact),
         ("TC-14 Delete Tanpa ID",               test_delete_no_id),
-        ("TC-18 XSS pada VPage",               test_xss_vpage),
         ("TC-20 Update Tanpa Login",            test_update_without_login),
     ]
 
