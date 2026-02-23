@@ -79,7 +79,7 @@ jobs:
       # Step 8: Import database damncrud.sql ke MySQL
       - name: Import Database
         run: |
-          mysql -h 127.0.0.1 -P 3306 -u root -proot damncrud < damncrud.sql
+          mysql -h 127.0.0.1 -P 3306 -u root -proot damncrud < db/damncrud.sql
           echo "Database berhasil diimport!"
 
       # Step 9: Update konfigurasi koneksi database di functions.php
